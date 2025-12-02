@@ -1,0 +1,35 @@
+# Dependencies
+node_modules/
+
+# Build outputs (will be created in Docker)
+dist/
+
+# Git
+.git/
+.gitignore
+
+# IDE / Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+
+# Documentation
+README.md
+*.md
+
+# Dev files
+start.ps1
+
+# Docker files (don't need to copy these into the image)
+Dockerfile
+docker-compose.yml
+.dockerignore
