@@ -507,22 +507,32 @@ export class WorldState {
       return null;
     }
     
-    // Check range
-    const dx = target.x - attacker.x;
-    const dz = target.z - attacker.z;
-    const distance = Math.sqrt(dx * dx + dz * dz);
+    // Skip if target is dead
+    if (target.health <= 0 || target.isDead) {
+      console.log(`[WorldState] Attack failed: target is already dead`);
+      return null;
+    }
     
-    // Be lenient with range check (add buffer for network latency)
-    const effectiveRange = attacker.attackRange + 1.0;
-    if (distance > effectiveRange) {
-      console.log(`[WorldState] Attack failed: distance ${distance.toFixed(1)} > range ${effectiveRange.toFixed(1)}`);
-      return null; // Out of range
+    // Skip range check for PvP (client-authoritative movement means server positions may be stale)
+    // Client already validates range locally before sending attack
+    // Only do range check for PvE (monster attacks) where server has accurate monster positions
+    if (target.type === 'monster') {
+      const dx = target.x - attacker.x;
+      const dz = target.z - attacker.z;
+      const distance = Math.sqrt(dx * dx + dz * dz);
+      
+      // Be lenient with range check (add buffer for network latency)
+      const effectiveRange = attacker.attackRange + 3.0;
+      if (distance > effectiveRange) {
+        console.log(`[WorldState] Attack failed: distance ${distance.toFixed(1)} > range ${effectiveRange.toFixed(1)}`);
+        return null; // Out of range
+      }
     }
     
     // Check attack cooldown - be lenient to account for network latency
     const now = Date.now();
     const attackInterval = 1000 / attacker.attackSpeed;
-    const cooldownBuffer = 100; // 100ms buffer for network latency
+    const cooldownBuffer = 150; // 150ms buffer for network latency
     
     if (now - attacker.lastAttackTime < attackInterval - cooldownBuffer) {
       // Don't log cooldown failures (too spammy)
@@ -534,6 +544,11 @@ export class WorldState {
     target.health = Math.max(0, target.health - attacker.attackDamage);
     
     console.log(`[WorldState] Attack success: ${attackerId} hit ${targetId} for ${attacker.attackDamage} (HP: ${target.health}/${target.maxHealth})`);
+    
+    // Check for player death in PvP
+    if (target.health <= 0 && !target.isDead && target.type === 'champion') {
+      this.handlePlayerDeath(targetId);
+    }
     
     return {
       damage: attacker.attackDamage,

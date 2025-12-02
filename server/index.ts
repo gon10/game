@@ -353,10 +353,11 @@ class GameServer {
         });
       }
       
-      // Clean up game state
-      this.sessions.delete(playerId);
+      // Clean up all player game state (characters, session, inventory)
+      this.cleanupPlayerGameState(playerId);
+      
+      // Remove from players map
       this.players.delete(playerId);
-      this.worldState.removeEntity(playerId);
       
       // Broadcast player left to game
       this.broadcast({
@@ -542,6 +543,9 @@ class GameServer {
         lobby: this.lobbyManager.serializeLobby(lobby),
       });
     }
+    
+    // Clean up player's game state
+    this.cleanupPlayerGameState(playerId);
   }
 
   private handleToggleReady(playerId: string, selectedTypes: ElementType[]): void {
@@ -1122,6 +1126,42 @@ class GameServer {
         },
       });
     }
+  }
+
+  /**
+   * Clean up all game state for a player (characters, session, inventory, active game)
+   */
+  private cleanupPlayerGameState(playerId: string): void {
+    // Remove session
+    this.sessions.delete(playerId);
+    
+    // Remove all character entities belonging to this player (player_X_char0, player_X_char1, etc.)
+    const entities = this.worldState.getEntities();
+    for (const entity of entities) {
+      if (entity.id.startsWith(playerId + '_char') || entity.id === playerId) {
+        this.worldState.removeEntity(entity.id);
+        console.log(`[Server] Removed entity: ${entity.id}`);
+      }
+    }
+    
+    // Remove from any active games
+    for (const [lobbyId, game] of this.activeGames) {
+      const playerIndex = game.players.indexOf(playerId);
+      if (playerIndex !== -1) {
+        game.players.splice(playerIndex, 1);
+        game.readyPlayers.delete(playerId);
+        console.log(`[Server] Removed ${playerId} from active game ${lobbyId}`);
+        
+        // If game is empty, clean it up
+        if (game.players.length === 0) {
+          this.activeGames.delete(lobbyId);
+          console.log(`[Server] Active game ${lobbyId} removed (empty)`);
+        }
+      }
+    }
+    
+    // Clean up inventory
+    this.itemManager.removePlayerInventory?.(playerId);
   }
 
   private broadcastToLobby(lobby: Lobby, data: object, excludeId?: string): void {
