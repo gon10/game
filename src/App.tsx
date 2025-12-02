@@ -161,10 +161,10 @@ export default function App() {
     );
 
     // Set up inventory listener IMMEDIATELY after game creation, before start()
-    const handleInventoryChange = (inv: PlayerInventory) => {
+    const handleInventoryChange = (inv: unknown) => {
       console.log("[App] Received inventory change:", JSON.stringify(inv));
       // Create a deep copy to ensure React detects the change
-      setInventory(JSON.parse(JSON.stringify(inv)));
+      setInventory(JSON.parse(JSON.stringify(inv)) as PlayerInventory);
     };
 
     gameRef.current.on("inventoryChanged", handleInventoryChange);
